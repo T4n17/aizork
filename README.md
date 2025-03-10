@@ -11,6 +11,10 @@ AIZork is a project that lets Large Language Models (LLMs) play the classic text
 
 This project demonstrates how modern AI can interact with classic interactive fiction games through a pseudo-terminal interface.
 
+<p align="center">
+  <img src="demo.gif" alt="AIZork Demo" width="400">
+</p>
+
 ### Features
 
 - 🤖 Uses Llama 3.1:8B by default (customizable to other models)
