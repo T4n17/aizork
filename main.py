@@ -5,12 +5,9 @@ import subprocess
 import ollama
 import pydantic
 import argparse
+from llama_cpp import Llama
 
-class CommandSchema(pydantic.BaseModel):
-    command: str
-
-class LLMmodel:
-    SYSTEM_CONTEXT = """
+SYSTEM_CONTEXT = """
     You have to play ZORK I: The Great Underground Empire game.
     You are given the contextual information of the game (about environment and actions), and you have respond with the command to be executed.
     You have to explore the game and try to win reaching the end.
@@ -19,6 +16,51 @@ class LLMmodel:
     "It's dark in here. You may be eaten by a grue." -> "turn on lamp"
     "Suggestion : You should try to reach the south of the house" -> "go south"
     """
+
+class CommandSchema(pydantic.BaseModel):
+    command: str
+
+class LlamaCppModel:
+    def __init__(self, model_path='./models/Qwen_Qwen2.5-7B-Instruct-GGUF_qwen2.5-7b-instruct-q2_k.gguf'):
+        
+        llm = Llama(
+            model_path=model_path,
+            chat_format="chatml",
+            n_ctx=4096,
+        )
+
+        self.model = llm
+        self.messages = []
+        self.set_system_context()
+        
+    def set_system_context(self, system_context=SYSTEM_CONTEXT):
+
+        self.messages.append({
+            'role': 'system', 
+            'content': system_context
+        })
+    
+    def process_user_input(self, user_input):
+
+        self.messages.append({
+            'role': 'user', 
+            'content': user_input
+        })
+    
+    def get_ai_response(self, format_schema):
+        response =self.model.create_chat_completion(
+            messages=self.messages,
+            response_format={
+                "type": "json_object",
+                "schema": format_schema
+            },
+            temperature=0.1,
+            max_tokens=256
+        )
+        json_response = response["choices"][0]["message"]["content"]
+        return json_response
+
+class OllamaModel:
 
     def __init__(self, host='localhost:11434', model='llama3.1:8B'):
 
@@ -42,16 +84,20 @@ class LLMmodel:
         })
     
     def get_ai_response(self, format_schema):
-        return self.client.chat(
+        response = self.client.chat(
             model=self.model, 
             messages=self.messages,
             format=format_schema,
             stream=False
         )
+        return response.message.content
 
 class AIZork:
-    def __init__(self):
-        self.model = LLMmodel()
+    def __init__(self, model_type):
+        if model_type == "ollama":
+            self.model = OllamaModel()
+        elif model_type == "llama-cpp":
+            self.model = LlamaCppModel()
         self.process = None
 
     def init_process(self):
@@ -74,7 +120,7 @@ class AIZork:
     def process_command(self, context):
         self.model.process_user_input(context)
         response = self.model.get_ai_response(CommandSchema.model_json_schema())
-        return CommandSchema.model_validate_json(response.message.content).command
+        return CommandSchema.model_validate_json(response).command
     
     def suggest_command(self):
         suggestion = input("Suggest: ")
@@ -85,8 +131,8 @@ class AIZork:
         self.process.terminate()
 
 class GameModes:
-    def __init__(self):
-        self.aizork = AIZork()
+    def __init__(self, model_type):
+        self.aizork = AIZork(model_type)
 
     def autoplay(self):
         self.aizork.init_process()
@@ -122,12 +168,12 @@ class GameModes:
             self.aizork.close()
         
 if __name__ == "__main__":
-    game = GameModes()
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
+    parser.add_argument("--model-type", type=str, default="ollama", help="Choose the model type (ollama or llama-cpp)")
     args = parser.parse_args()
+    game = GameModes(args.model_type)
     if args.mode == "autoplay":
         game.autoplay()
     elif args.mode == "suggestion":
         game.suggestion()
-    

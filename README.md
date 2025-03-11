@@ -17,17 +17,21 @@ This project demonstrates how modern AI can interact with classic interactive fi
 
 ### Features
 
-- 🤖 Uses Llama 3.1:8B by default (customizable to other models)
+- 🤖 Supports multiple LLM backends:
+  - Ollama with Llama 3.1:8B (default)
+  - Local models via llama-cpp-python
 - 🎮 Fully automated gameplay through AI decision-making
 - 🔄 Real-time interaction with the Zork game environment
 - 📊 Observe how AI interprets game context and generates commands
 - 💬 Ability to provide suggestions to guide the AI during gameplay
+- 🧩 Structured output using Pydantic for reliable command generation
 
 ## 🔧 Prerequisites
 
 - **Python 3.8+** - For running the main application
-- **[Ollama](https://ollama.ai/)** - For local LLM inference
-- **Pydantic** - For data validation and settings management
+- **[Ollama](https://ollama.ai/)** (optional) - For Ollama-based LLM inference
+- **llama-cpp-python** (optional) - For local model inference
+- **Pydantic** - For data validation and structured output
 - **[Dosemu2](https://github.com/dosemu2/dosemu2)** - DOS emulator to run Zork
 - **Zork I: The Great Underground Empire** - DOS version of the game
 
@@ -36,6 +40,7 @@ This project demonstrates how modern AI can interact with classic interactive fi
 ```
 .
 ├── ZORK/           # Directory containing Zork game files
+├── models/         # Directory for storing local GGUF models (for llama-cpp-python)
 ├── main.py         # Main application script
 ├── requirements.txt # Project dependencies
 └── README.md       # Project documentation
@@ -62,10 +67,13 @@ This project demonstrates how modern AI can interact with classic interactive fi
 
 4. Place your Zork DOS game files in the `ZORK` directory
 
-5. Ensure Ollama is running with the Llama 3.1:8B model:
-   ```bash
-   ollama pull llama3.1:8B
-   ```
+5. Choose your LLM backend:
+   - For Ollama:
+     ```bash
+     ollama pull llama3.1:8B
+     ```
+   - For llama-cpp-python:
+     Place your GGUF model files in the `models/` directory
 
 ## 🎮 Usage
 
@@ -75,28 +83,56 @@ Start the AIZork application:
 python3 main.py
 ```
 
-The AI will automatically begin playing Zork. You can observe its decisions and gameplay in real-time.
+The AI will automatically begin playing Zork using the default Ollama backend. You can observe its decisions and gameplay in real-time.
 
-### Game Modes
+### Game Modes and Model Types
 
-AIZork supports two different game modes:
+AIZork supports different game modes and model backends:
 
-1. **Autoplay Mode** (default): The AI plays the game completely autonomously.
-   ```bash
-   python3 main.py --mode autoplay
-   ```
+1. **Game Modes**:
+   - **Autoplay Mode** (default): The AI plays the game completely autonomously.
+     ```bash
+     python3 main.py --mode autoplay
+     ```
+   - **Suggestion Mode**: You can provide suggestions to guide the AI during gameplay.
+     ```bash
+     python3 main.py --mode suggestion
+     ```
+     When prompted with "Suggest:", you can type a suggestion that will be passed to the AI.
 
-2. **Suggestion Mode**: You can provide suggestions to guide the AI during gameplay.
-   ```bash
-   python3 main.py --mode suggestion
-   ```
-   When prompted with "Suggest:", you can type a suggestion that will be passed to the AI.
+2. **Model Types**:
+   - **Ollama** (default): Uses Ollama for LLM inference.
+     ```bash
+     python3 main.py --model-type ollama
+     ```
+   - **llama-cpp-python**: Uses local GGUF models for inference.
+     ```bash
+     python3 main.py --model-type llama-cpp
+     ```
+
+Combined example:
+```bash
+python3 main.py --mode suggestion --model-type llama-cpp
+```
 
 To exit the application, press `CTRL+C`.
 
 ## ⚙️ Configuration
 
-You can customize the LLM used by modifying the `model` parameter in the `LLMmodel` class initialization:
+### Ollama Model Configuration
+
+You can customize the Ollama model by modifying the parameters in the `OllamaModel` class initialization:
 
 ```python
-self.model = LLMmodel(host='localhost:11434', model='YOUR_PREFERRED_MODEL')
+self.model = OllamaModel(host='localhost:11434', model='YOUR_PREFERRED_MODEL')
+```
+
+### llama-cpp-python Model Configuration
+
+You can customize the local model by modifying the parameters in the `LlamaCppModel` class initialization:
+
+```python
+self.model = LlamaCppModel(model_path='./models/YOUR_MODEL_FILE.gguf')
+```
+
+The model should be in GGUF format and placed in the `models/` directory.
