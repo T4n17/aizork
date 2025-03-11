@@ -10,7 +10,6 @@ class CommandSchema(pydantic.BaseModel):
     command: str
 
 class LLMmodel:
-
     SYSTEM_CONTEXT = """
     You have to play ZORK I: The Great Underground Empire game.
     You are given the contextual information of the game (about environment and actions), and you have respond with the command to be executed.
@@ -86,7 +85,6 @@ class AIZork:
         self.process.terminate()
 
 class GameModes:
-
     def __init__(self):
         self.aizork = AIZork()
 
@@ -125,15 +123,6 @@ class GameModes:
         
 if __name__ == "__main__":
     game = GameModes()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
-    args = parser.parse_args()
-    if args.mode == "autoplay":
-        game.autoplay()
-    elif args.mode == "suggestion":
-        game.suggestion()
-        
-if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
     args = parser.parse_args()
