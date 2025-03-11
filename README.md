@@ -21,6 +21,7 @@ This project demonstrates how modern AI can interact with classic interactive fi
 - 🎮 Fully automated gameplay through AI decision-making
 - 🔄 Real-time interaction with the Zork game environment
 - 📊 Observe how AI interprets game context and generates commands
+- 💬 Ability to provide suggestions to guide the AI during gameplay
 
 ## 🔧 Prerequisites
 
@@ -76,6 +77,21 @@ python3 main.py
 
 The AI will automatically begin playing Zork. You can observe its decisions and gameplay in real-time.
 
+### Game Modes
+
+AIZork supports two different game modes:
+
+1. **Autoplay Mode** (default): The AI plays the game completely autonomously.
+   ```bash
+   python3 main.py --mode autoplay
+   ```
+
+2. **Suggestion Mode**: You can provide suggestions to guide the AI during gameplay.
+   ```bash
+   python3 main.py --mode suggestion
+   ```
+   When prompted with "Suggest:", you can type a suggestion that will be passed to the AI.
+
 To exit the application, press `CTRL+C`.
 
 ## ⚙️ Configuration
@@ -84,4 +100,3 @@ You can customize the LLM used by modifying the `model` parameter in the `LLMmod
 
 ```python
 self.model = LLMmodel(host='localhost:11434', model='YOUR_PREFERRED_MODEL')
-```

@@ -4,6 +4,7 @@ import time
 import subprocess
 import ollama
 import pydantic
+import argparse
 
 class CommandSchema(pydantic.BaseModel):
     command: str
@@ -14,8 +15,10 @@ class LLMmodel:
     You have to play ZORK I: The Great Underground Empire game.
     You are given the contextual information of the game (about environment and actions), and you have respond with the command to be executed.
     You have to explore the game and try to win reaching the end.
+    Occasionally, the user will give you suggestions to proceed in the right direction or take the right action, after a proper statement "Suggestion :".
     Examples: "There is a mailbox in front of you." -> "open mailbox"
     "It's dark in here. You may be eaten by a grue." -> "turn on lamp"
+    "Suggestion : You should try to reach the south of the house" -> "go south"
     """
 
     def __init__(self, host='localhost:11434', model='llama3.1:8B'):
@@ -49,9 +52,6 @@ class LLMmodel:
 
 class AIZork:
     def __init__(self):
-        self.name = "AIZork"
-        self.version = "0.1.0"
-        self.author = "Tani"
         self.model = LLMmodel()
         self.process = None
 
@@ -76,27 +76,69 @@ class AIZork:
         self.model.process_user_input(context)
         response = self.model.get_ai_response(CommandSchema.model_json_schema())
         return CommandSchema.model_validate_json(response.message.content).command
+    
+    def suggest_command(self):
+        suggestion = input("Suggest: ")
+        if suggestion:
+            self.model.process_user_input("Suggestion:"+ suggestion)
 
     def close(self):
         self.process.terminate()
 
-def main():
-    aizork = AIZork()
-    aizork.init_process()
-    try:
-        while True:
-            time.sleep(2)
-            context = aizork.read_text()
-            print(context)
-            command = aizork.process_command(context)
-            aizork.send_command(command)
-            aizork.send_command("\n")
-    except KeyboardInterrupt:
-        aizork.close()
-    except Exception as e:
-        print(f"Error: {e}")
-        aizork.close()
+class GameModes:
+
+    def __init__(self):
+        self.aizork = AIZork()
+
+    def autoplay(self):
+        self.aizork.init_process()
+        try:
+            while True:
+                time.sleep(2)
+                context = self.aizork.read_text()
+                print(context)
+                command = self.aizork.process_command(context)
+                self.aizork.send_command(command)
+                self.aizork.send_command("\n")
+        except KeyboardInterrupt:
+            self.aizork.close()
+        except Exception as e:
+            print(f"Error: {e}")
+            self.aizork.close()
+            
+    def suggestion(self):
+        self.aizork.init_process()
+        try:
+            while True:
+                time.sleep(2)
+                context = self.aizork.read_text()
+                print(context)
+                self.aizork.suggest_command()
+                command = self.aizork.process_command(context)
+                self.aizork.send_command(command)
+                self.aizork.send_command("\n")
+        except KeyboardInterrupt:
+            self.aizork.close()
+        except Exception as e:
+            print(f"Error: {e}")
+            self.aizork.close()
         
 if __name__ == "__main__":
-    main()
+    game = GameModes()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
+    args = parser.parse_args()
+    if args.mode == "autoplay":
+        game.autoplay()
+    elif args.mode == "suggestion":
+        game.suggestion()
+        
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
+    args = parser.parse_args()
+    if args.mode == "autoplay":
+        game.autoplay()
+    elif args.mode == "suggestion":
+        game.suggestion()
     
