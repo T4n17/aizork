@@ -3,13 +3,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/Game-Zork%20I-yellow" alt="Game: Zork I">
+  <img src="https://img.shields.io/badge/RAG-Enhanced-green" alt="RAG Enhanced">
 </p>
 
 ## 📖 Description
 
 AIZork is a project that lets Large Language Models (LLMs) play the classic text adventure game Zork I: The Great Underground Empire. Watch as AI navigates the underground empire, solves puzzles, and attempts to win the game through natural language commands.
 
-This project demonstrates how modern AI can interact with classic interactive fiction games through a pseudo-terminal interface.
+This project demonstrates how modern AI can interact with classic interactive fiction games through a pseudo-terminal interface, with optional Retrieval-Augmented Generation (RAG) assistance.
 
 <p align="center">
   <img src="demo.gif" alt="AIZork Demo" width="400">
@@ -25,15 +26,29 @@ This project demonstrates how modern AI can interact with classic interactive fi
 - 📊 Observe how AI interprets game context and generates commands
 - 💬 Ability to provide suggestions to guide the AI during gameplay
 - 🧩 Structured output using Pydantic for reliable command generation
+- 📚 Enhanced RAG system with multiple document formats for better gameplay assistance
 
 ## 🔧 Prerequisites
 
 - **Python 3.8+** - For running the main application
-- **[Ollama](https://ollama.ai/)** (optional) - For Ollama-based LLM inference
-- **llama-cpp-python** (optional) - For local model inference
-- **Pydantic** - For data validation and structured output
+- **[Ollama](https://ollama.ai/)** - For Ollama-based LLM inference
 - **[Dosemu2](https://github.com/dosemu2/dosemu2)** - DOS emulator to run Zork
 - **Zork I: The Great Underground Empire** - DOS version of the game
+
+### Python Dependencies
+
+- **pydantic** - For data validation and structured output
+- **llama-cpp-python** - For local model inference (optional)
+- **colorama** - For colored terminal output
+- **llama-index** - For the RAG system components:
+  - llama-index-core - Core functionality
+  - llama-index-llms-ollama - Ollama integration
+  - llama-index-llms-llama-cpp - Local model integration
+  - llama-index-embeddings-ollama - Ollama embeddings
+  - llama-index-embeddings-huggingface - HuggingFace embeddings
+- **sentence-transformers** - For embedding models (when using HuggingFace)
+
+All dependencies can be installed via the provided `requirements.txt` file.
 
 ## 📁 Directory Structure
 
@@ -41,7 +56,12 @@ This project demonstrates how modern AI can interact with classic interactive fi
 .
 ├── ZORK/           # Directory containing Zork game files
 ├── models/         # Directory for storing local GGUF models (for llama-cpp-python)
+├── walkthroughs/   # Directory containing Zork walkthrough documents for RAG
+│   ├── zork_walkthrough.md           # Markdown-based walkthrough
+│   ├── zork_command_sequence.txt     # Linear command sequence
+│   └── zork_location_guide.md        # Location-based reference guide
 ├── main.py         # Main application script
+├── tools.py        # RAG system implementation
 ├── requirements.txt # Project dependencies
 └── README.md       # Project documentation
 ```
@@ -110,29 +130,28 @@ AIZork supports different game modes and model backends:
      python3 main.py --model-type llama-cpp
      ```
 
-Combined example:
-```bash
-python3 main.py --mode suggestion --model-type llama-cpp
-```
+3. **RAG Helper**:
+   - Enable the RAG helper to assist the AI with walkthrough information:
+     ```bash
+     python3 main.py --rag-helper
+     ```
+     This uses multiple document formats (markdown walkthrough, command sequence, and location guide) to provide context-aware suggestions to the AI.
 
-To exit the application, press `CTRL+C`.
+## 📚 RAG System
 
-## ⚙️ Configuration
+The RAG (Retrieval-Augmented Generation) system enhances the AI's gameplay by providing context-aware suggestions based on a comprehensive Zork walkthrough. The system uses:
 
-### Ollama Model Configuration
+1. **Multiple Document Formats**:
+   - **Markdown Walkthrough** (`zork_walkthrough.md`): A structured guide with sections and commands
+   - **Command Sequence** (`zork_command_sequence.txt`): A linear list of commands to complete the game
+   - **Location Guide** (`zork_location_guide.md`): A reference organized by game locations
 
-You can customize the Ollama model by modifying the parameters in the `OllamaModel` class initialization:
+2. **Tree Summarize Response Mode**:
+   - Synthesizes information across multiple documents
+   - Provides comprehensive answers by combining relevant chunks
 
-```python
-self.model = OllamaModel(host='localhost:11434', model='YOUR_PREFERRED_MODEL')
-```
+3. **Embedding Model**:
+   - Uses Ollama's `nomic-embed-text` model for document embedding
+   - Creates a vector index for efficient retrieval
 
-### llama-cpp-python Model Configuration
-
-You can customize the local model by modifying the parameters in the `LlamaCppModel` class initialization:
-
-```python
-self.model = LlamaCppModel(model_path='./models/YOUR_MODEL_FILE.gguf')
-```
-
-The model should be in GGUF format and placed in the `models/` directory.
+The RAG system helps the AI navigate complex areas, solve puzzles, and make better decisions during gameplay.
