@@ -5,6 +5,11 @@
 AIZork: An AI-powered player for the classic text adventure game Zork I.
 This module contains the main application logic for running different game modes
 and handling the interaction between AI models and the Zork game.
+
+The application supports multiple game modes:
+1. Autoplay: AI plays the game autonomously
+2. Suggestion: User can provide suggestions to guide the AI
+3. RAG-assisted: Uses Retrieval-Augmented Generation to provide context from walkthroughs
 """
 
 import pty
@@ -15,8 +20,7 @@ import ollama
 import pydantic
 import argparse
 from colorama import Fore, Style
-from llama_cpp import Llama
-from tools import Tools
+from rag import RAG
 
 # System prompt that guides the AI on how to play Zork
 SYSTEM_CONTEXT = """
@@ -36,80 +40,12 @@ class CommandSchema(pydantic.BaseModel):
     """
     command: str
 
-class LlamaCppModel:
-    """
-    Wrapper for local LLM inference using llama-cpp-python.
-    Handles chat history, system context, and response generation.
-    """
-    def __init__(self, model_path='./models/Qwen_Qwen2.5-7B-Instruct-GGUF_qwen2.5-7b-instruct-q2_k.gguf'):
-        """
-        Initialize the LlamaCpp model with the specified model path.
-        
-        Args:
-            model_path (str): Path to the GGUF model file
-        """
-        llm = Llama(
-            model_path=model_path,
-            chat_format="chatml",  # Use ChatML format for structured chat
-            n_ctx=4096,  # Context window size
-        )
-
-        self.model = llm
-        self.messages = []  # Chat history
-        self.set_system_context()
-        
-    def set_system_context(self, system_context=SYSTEM_CONTEXT):
-        """
-        Set the system context/prompt for the model.
-        
-        Args:
-            system_context (str): System instructions for the model
-        """
-        self.messages.append({
-            'role': 'system', 
-            'content': system_context
-        })
-    
-    def process_user_input(self, user_input):
-        """
-        Add user input to the chat history.
-        
-        Args:
-            user_input (str): Game context or user suggestion
-        """
-        self.messages.append({
-            'role': 'user', 
-            'content': user_input
-        })
-    
-    def get_ai_response(self, format_schema):
-        """
-        Generate a response from the AI model using the chat history.
-        
-        Args:
-            format_schema (dict): JSON schema for structured output
-            
-        Returns:
-            str: JSON-formatted response from the model
-        """
-        response = self.model.create_chat_completion(
-            messages=self.messages,
-            response_format={
-                "type": "json_object",
-                "schema": format_schema
-            },
-            temperature=0.1,  # Low temperature for more deterministic outputs
-            max_tokens=256
-        )
-        json_response = response["choices"][0]["message"]["content"]
-        return json_response
-
-class OllamaModel:
+class LLM:
     """
     Wrapper for Ollama-based LLM inference.
     Handles chat history, system context, and response generation.
     """
-    def __init__(self, host='192.168.0.115:11434', model='llama3.1:8B'):
+    def __init__(self, host='localhost:11434', model='llama3.2:3B'):
         """
         Initialize the Ollama model with the specified host and model.
         
@@ -169,17 +105,11 @@ class AIZork:
     Main class for handling the interaction between AI models and the Zork game.
     Sets up the pseudo-terminal, processes game output, and sends AI commands.
     """
-    def __init__(self, model_type):
+    def __init__(self):
         """
-        Initialize AIZork with the specified model type.
-        
-        Args:
-            model_type (str): Type of model to use ('ollama' or 'llama-cpp')
+        Initialize AIZork with the Ollama LLM.
         """
-        if model_type == "ollama":
-            self.model = OllamaModel()
-        elif model_type == "llama-cpp":
-            self.model = LlamaCppModel()
+        self.model = LLM()
         self.process = None
 
     def init_process(self):
@@ -248,18 +178,16 @@ class GameModes:
     Class containing different game modes for AIZork.
     Includes autoplay, autoplay with RAG assistance, and suggestion mode.
     """
-    def __init__(self, model_type):
+    def __init__(self):
         """
-        Initialize GameModes with the specified model type.
-        
-        Args:
-            model_type (str): Type of model to use ('ollama' or 'llama-cpp')
+        Initialize GameModes with AIZork instance.
         """
-        self.aizork = AIZork(model_type)
+        self.aizork = AIZork()
 
     def autoplay(self):
         """
         Run the game in autoplay mode where the AI plays completely autonomously.
+        The AI makes decisions based solely on the game context without additional assistance.
         """
         self.aizork.init_process()
         try:
@@ -280,38 +208,23 @@ class GameModes:
     def autoplay_with_rag(self):
         """
         Run the game in autoplay mode with RAG (Retrieval-Augmented Generation) assistance.
-        Uses a walkthrough guide to help the AI make better decisions.
+        Uses a walkthrough guide to help the AI make better decisions by retrieving
+        relevant information from the ChromaDB database based on the current game context.
         """
         self.aizork.init_process()
-        tools = Tools()  # Initialize RAG tools
+        rag = RAG()  # Initialize RAG tools
         try:
             while True:
                 time.sleep(2)  # Wait for game output
                 context = self.aizork.read_text()
                 print(f"{context}")
-                suggestion = tools.get_suggestion_from_rag(context)  # Get suggestion from RAG
+                suggestion = rag.get_suggestion_from_rag(context)  # Get suggestion from RAG
                 print(f"{Fore.GREEN}{suggestion}{Style.RESET_ALL}")  # Display suggestion in green
-                command = self.aizork.process_command(context + "\n" + suggestion)
-                print(f"{Fore.RED}{command}{Style.RESET_ALL}")  # Display command in red
-                self.aizork.send_command(command)
-                self.aizork.send_command("\n")
-        except KeyboardInterrupt:
-            self.aizork.close()
-        except Exception as e:
-            print(f"Error: {e}")
-            self.aizork.close()
-            
-    def suggestion(self):
-        """
-        Run the game in suggestion mode where the user can provide suggestions to the AI.
-        """
-        self.aizork.init_process()
-        try:
-            while True:
-                time.sleep(2)  # Wait for game output
-                context = self.aizork.read_text()
-                print(context)
-                self.aizork.suggest_command()  # Get suggestion from user
+                
+                # Add the suggestion to the AI's context
+                self.aizork.model.process_user_input(f"Suggestion: {suggestion}")
+                
+                # Generate and execute command
                 command = self.aizork.process_command(context)
                 print(f"{Fore.RED}{command}{Style.RESET_ALL}")  # Display command in red
                 self.aizork.send_command(command)
@@ -321,23 +234,53 @@ class GameModes:
         except Exception as e:
             print(f"Error: {e}")
             self.aizork.close()
-        
+
+    def suggestion_mode(self):
+        """
+        Run the game in suggestion mode where the user can provide suggestions to guide the AI.
+        The AI still makes the final decisions, but user input can help steer it in the right direction.
+        """
+        self.aizork.init_process()
+        try:
+            while True:
+                time.sleep(2)  # Wait for game output
+                context = self.aizork.read_text()
+                print(context)
+                
+                # Get suggestion from user
+                self.aizork.suggest_command()
+                
+                # Generate and execute command
+                command = self.aizork.process_command(context)
+                print(f"{Fore.RED}{command}{Style.RESET_ALL}")  # Display command in red
+                self.aizork.send_command(command)
+                self.aizork.send_command("\n")
+        except KeyboardInterrupt:
+            self.aizork.close()
+        except Exception as e:
+            print(f"Error: {e}")
+            self.aizork.close()
+
 if __name__ == "__main__":
     # Parse command-line arguments
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", type=str, default="autoplay", help="Choose the game mode (autoplay or suggestion)")
-    parser.add_argument("--model-type", type=str, default="ollama", help="Choose the model type (ollama or llama-cpp)")
-    parser.add_argument("--rag-helper", action=argparse.BooleanOptionalAction, default=False, help="Enable RAG helper")
+    parser = argparse.ArgumentParser(description="AIZork: An AI-powered player for Zork I")
+    parser.add_argument("--mode", type=str, default="autoplay", 
+                        choices=["autoplay", "suggestion"],
+                        help="Choose the game mode (autoplay or suggestion)")
+    parser.add_argument("--rag-helper", action="store_true", 
+                        help="Enable RAG assistance for better gameplay")
     args = parser.parse_args()
     
-    # Initialize game with specified model type
-    game = GameModes(args.model_type)
+    # Initialize game modes
+    game_modes = GameModes()
     
-    # Run the appropriate game mode
+    # Run the selected game mode
     if args.rag_helper:
-        game.autoplay_with_rag()
+        print("Running in autoplay mode with RAG assistance...")
+        game_modes.autoplay_with_rag()
+    elif args.mode == "suggestion":
+        print("Running in suggestion mode...")
+        game_modes.suggestion_mode()
     else:
-        if args.mode == "autoplay":
-            game.autoplay()
-        elif args.mode == "suggestion":
-            game.suggestion()
+        print("Running in autoplay mode...")
+        game_modes.autoplay()

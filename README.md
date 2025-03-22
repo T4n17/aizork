@@ -3,14 +3,14 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/Game-Zork%20I-yellow" alt="Game: Zork I">
-  <img src="https://img.shields.io/badge/RAG-Enhanced-green" alt="RAG Enhanced">
+  <img src="https://img.shields.io/badge/ChromaDB-RAG-green" alt="ChromaDB RAG">
 </p>
 
 ## 📖 Description
 
 AIZork is a project that lets Large Language Models (LLMs) play the classic text adventure game Zork I: The Great Underground Empire. Watch as AI navigates the underground empire, solves puzzles, and attempts to win the game through natural language commands.
 
-This project demonstrates how modern AI can interact with classic interactive fiction games through a pseudo-terminal interface, with optional Retrieval-Augmented Generation (RAG) assistance.
+This project demonstrates how modern AI can interact with classic interactive fiction games through a pseudo-terminal interface, with optional Retrieval-Augmented Generation (RAG) assistance using ChromaDB.
 
 <p align="center">
   <img src="demo.gif" alt="AIZork Demo" width="400">
@@ -18,15 +18,13 @@ This project demonstrates how modern AI can interact with classic interactive fi
 
 ### Features
 
-- 🤖 Supports multiple LLM backends:
-  - Ollama with Llama 3.1:8B (default)
-  - Local models via llama-cpp-python
+- 🤖 Supports Ollama with Llama 3.2:3B (default)
 - 🎮 Fully automated gameplay through AI decision-making
 - 🔄 Real-time interaction with the Zork game environment
 - 📊 Observe how AI interprets game context and generates commands
 - 💬 Ability to provide suggestions to guide the AI during gameplay
 - 🧩 Structured output using Pydantic for reliable command generation
-- 📚 Enhanced RAG system with multiple document formats for better gameplay assistance
+- 📚 ChromaDB-powered RAG system for better gameplay assistance
 
 ## 🔧 Prerequisites
 
@@ -37,16 +35,10 @@ This project demonstrates how modern AI can interact with classic interactive fi
 
 ### Python Dependencies
 
+- **ollama** - For Ollama API integration
 - **pydantic** - For data validation and structured output
-- **llama-cpp-python** - For local model inference (optional)
 - **colorama** - For colored terminal output
-- **llama-index** - For the RAG system components:
-  - llama-index-core - Core functionality
-  - llama-index-llms-ollama - Ollama integration
-  - llama-index-llms-llama-cpp - Local model integration
-  - llama-index-embeddings-ollama - Ollama embeddings
-  - llama-index-embeddings-huggingface - HuggingFace embeddings
-- **sentence-transformers** - For embedding models (when using HuggingFace)
+- **chromadb** - For vector database and RAG functionality
 
 All dependencies can be installed via the provided `requirements.txt` file.
 
@@ -55,13 +47,12 @@ All dependencies can be installed via the provided `requirements.txt` file.
 ```
 .
 ├── ZORK/           # Directory containing Zork game files
-├── models/         # Directory for storing local GGUF models (for llama-cpp-python)
 ├── walkthroughs/   # Directory containing Zork walkthrough documents for RAG
 │   ├── zork_walkthrough.md           # Markdown-based walkthrough
 │   ├── zork_command_sequence.txt     # Linear command sequence
 │   └── zork_location_guide.md        # Location-based reference guide
 ├── main.py         # Main application script
-├── tools.py        # RAG system implementation
+├── rag.py          # RAG system implementation
 ├── requirements.txt # Project dependencies
 └── README.md       # Project documentation
 ```
@@ -87,13 +78,16 @@ All dependencies can be installed via the provided `requirements.txt` file.
 
 4. Place your Zork DOS game files in the `ZORK` directory
 
-5. Choose your LLM backend:
-   - For Ollama:
-     ```bash
-     ollama pull llama3.1:8B
-     ```
-   - For llama-cpp-python:
-     Place your GGUF model files in the `models/` directory
+5. Set up Ollama:
+   ```bash
+   ollama pull llama3.2:3B
+   ```
+
+6. Create a `walkthroughs` directory and add your Zork walkthrough documents:
+   ```bash
+   mkdir -p walkthroughs
+   # Add walkthrough files to this directory
+   ```
 
 ## 🎮 Usage
 
@@ -103,55 +97,59 @@ Start the AIZork application:
 python3 main.py
 ```
 
-The AI will automatically begin playing Zork using the default Ollama backend. You can observe its decisions and gameplay in real-time.
+The AI will automatically begin playing Zork using the Ollama backend. You can observe its decisions and gameplay in real-time.
 
-### Game Modes and Model Types
+### Game Modes
 
-AIZork supports different game modes and model backends:
+AIZork supports different game modes:
 
-1. **Game Modes**:
-   - **Autoplay Mode** (default): The AI plays the game completely autonomously.
-     ```bash
-     python3 main.py --mode autoplay
-     ```
-   - **Suggestion Mode**: You can provide suggestions to guide the AI during gameplay.
-     ```bash
-     python3 main.py --mode suggestion
-     ```
-     When prompted with "Suggest:", you can type a suggestion that will be passed to the AI.
+1. **Autoplay Mode** (default): The AI plays the game completely autonomously.
+   ```bash
+   python3 main.py
+   ```
 
-2. **Model Types**:
-   - **Ollama** (default): Uses Ollama for LLM inference.
-     ```bash
-     python3 main.py --model-type ollama
-     ```
-   - **llama-cpp-python**: Uses local GGUF models for inference.
-     ```bash
-     python3 main.py --model-type llama-cpp
-     ```
+2. **Suggestion Mode**: You can provide suggestions to guide the AI during gameplay.
+   ```bash
+   python3 main.py --mode suggestion
+   ```
+   When prompted with "Suggest:", you can type a suggestion that will be passed to the AI.
 
-3. **RAG Helper**:
-   - Enable the RAG helper to assist the AI with walkthrough information:
-     ```bash
-     python3 main.py --rag-helper
-     ```
-     This uses multiple document formats (markdown walkthrough, command sequence, and location guide) to provide context-aware suggestions to the AI.
+3. **RAG-Assisted Mode**: Enable the RAG helper to assist the AI with walkthrough information:
+   ```bash
+   python3 main.py --rag-helper
+   ```
+   This uses ChromaDB to provide context-aware suggestions to the AI based on the current game state.
 
-## 📚 RAG System
+## 📚 ChromaDB RAG System
 
-The RAG (Retrieval-Augmented Generation) system enhances the AI's gameplay by providing context-aware suggestions based on a comprehensive Zork walkthrough. The system uses:
+The RAG (Retrieval-Augmented Generation) system enhances the AI's gameplay by providing context-aware suggestions based on Zork walkthroughs. The system uses:
 
-1. **Multiple Document Formats**:
-   - **Markdown Walkthrough** (`zork_walkthrough.md`): A structured guide with sections and commands
-   - **Command Sequence** (`zork_command_sequence.txt`): A linear list of commands to complete the game
-   - **Location Guide** (`zork_location_guide.md`): A reference organized by game locations
+1. **Intelligent Document Chunking**:
+   - **Markdown Files**: Split by headers to preserve logical sections
+   - **Text Files**: Split into overlapping chunks with natural break points
 
-2. **Tree Summarize Response Mode**:
-   - Synthesizes information across multiple documents
-   - Provides comprehensive answers by combining relevant chunks
+2. **Vector Database**:
+   - Uses ChromaDB to store document chunks and their vector embeddings
+   - Enables semantic search to find the most relevant information for the current game state
 
-3. **Embedding Model**:
-   - Uses Ollama's `nomic-embed-text` model for document embedding
-   - Creates a vector index for efficient retrieval
+3. **Duplicate Detection**:
+   - Prevents similar suggestions from being shown multiple times
+   - Ensures diverse and helpful information is provided to the AI
 
 The RAG system helps the AI navigate complex areas, solve puzzles, and make better decisions during gameplay.
+
+## 🧠 How It Works
+
+1. **Game Interaction**:
+   - AIZork uses a pseudo-terminal to interact with the Zork game running in Dosemu
+   - The AI reads the game output and generates appropriate commands
+
+2. **AI Decision Making**:
+   - The game context is sent to the Ollama LLM
+   - The LLM generates a structured command response
+   - The command is sent back to the game
+
+3. **RAG Assistance**:
+   - When enabled, the current game context is also sent to the RAG system
+   - ChromaDB retrieves the most relevant walkthrough information
+   - This information is provided to the AI to help it make better decisions
