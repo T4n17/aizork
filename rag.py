@@ -86,10 +86,26 @@ class ChromaDB:
         # Get or create the collection
         collection = self.chroma_client.get_or_create_collection(name=self.walkthrough_collection_name)
         
-        # If overwrite, delete existing documents
+        # If overwrite, delete all existing documents
         if overwrite:
-            collection.delete()
-            collection = self.chroma_client.create_collection(name=self.walkthrough_collection_name)
+            # Get all document IDs in the collection
+            try:
+                # Query with a large n_results to get all documents
+                results = collection.query(
+                    query_texts=["*"],
+                    n_results=10000,  # Large number to get all documents
+                    include=["documents", "metadatas", "distances"]
+                )
+                
+                if results and results["ids"] and results["ids"][0]:
+                    # Delete all existing documents
+                    collection.delete(ids=results["ids"][0])
+                    print(f"Deleted {len(results['ids'][0])} existing documents from collection")
+            except Exception as e:
+                print(f"Warning: Could not delete existing documents: {e}")
+                # If deletion fails, recreate the collection
+                self.chroma_client.delete_collection(name=self.walkthrough_collection_name)
+                collection = self.chroma_client.create_collection(name=self.walkthrough_collection_name)
         
         # Add documents to the collection
         collection.add(
@@ -99,6 +115,7 @@ class ChromaDB:
         )
         
         print(f"Successfully saved {len(documents)} walkthrough documents to ChromaDB collection '{self.walkthrough_collection_name}'")
+        print(f"Created {len(chroma_data['ids'])} chunks with level-specific metadata")
 
     def save_data_to_chroma(self, data, collection_name):
         """
@@ -163,6 +180,7 @@ class ChromaDB:
         """
         Process documents for storage in ChromaDB.
         Splits documents into smaller chunks for better retrieval.
+        For Zork walkthrough, each level corresponds to exactly one chunk.
         
         Args:
             documents (List[Document]): List of documents to process
@@ -176,19 +194,20 @@ class ChromaDB:
         
         for doc in documents:
             # Split document into smaller chunks for better retrieval
-            chunks = self.split_document_into_chunks(doc)
+            chunks_with_metadata = self.split_document_into_chunks(doc)
             
-            for i, chunk in enumerate(chunks):
+            for i, (chunk_text, level_name) in enumerate(chunks_with_metadata):
                 doc_id = str(uuid.uuid4())
                 ids.append(doc_id)
-                texts.append(chunk)
+                texts.append(chunk_text)
                 
-                # Extract metadata from document
+                # Extract metadata from document and include level name
                 metadata = {
                     "filename": doc.metadata.get("filename", "unknown"),
                     "source": "walkthrough",
                     "chunk_index": i,
                     "created_at": doc.metadata.get("created_at", ""),
+                    "level_name": level_name if level_name else "unknown"
                 }
                 metadatas.append(metadata)
         
@@ -202,62 +221,64 @@ class ChromaDB:
         """
         Split a document into smaller chunks for better retrieval.
         Uses different strategies based on document type.
+        For Zork walkthrough, each level corresponds to exactly one chunk.
         
         Args:
             doc (Document): Document to split
             
         Returns:
-            List[str]: List of text chunks
+            List[tuple]: List of (text chunk, level_name) tuples
         """
         # For markdown files, try to split by headers
         if doc.metadata.get("filename", "").endswith((".md", ".markdown")):
             return self.split_markdown_by_sections(doc.text)
         
         # For text files, split by lines with a reasonable chunk size
-        return self.split_text_by_chunks(doc.text)
+        # Return as list of tuples (text, None) for consistency
+        return [(chunk, None) for chunk in self.split_text_by_chunks(doc.text)]
     
     def split_markdown_by_sections(self, text):
         """
         Split markdown text by sections (headers).
         This preserves the logical structure of the document.
+        For Zork walkthrough, each level (### header) corresponds to exactly one chunk.
         
         Args:
             text (str): Markdown text
             
         Returns:
-            List[str]: List of sections
+            List[dict]: List of sections with their metadata
         """
-        # Split by headers (## or ###)
-        header_pattern = re.compile(r'^#{1,3}\s+', re.MULTILINE)
+        # Split by level 3 headers (###) for specific locations
+        level3_header_pattern = re.compile(r'^###\s+(.*?)$', re.MULTILINE)
         
-        # Find all header positions
-        header_matches = list(header_pattern.finditer(text))
+        # Find all level 3 header positions and names
+        level3_matches = list(level3_header_pattern.finditer(text))
         
-        if not header_matches:
-            # If no headers found, fall back to chunk-based splitting
-            return self.split_text_by_chunks(text)
+        if not level3_matches:
+            # If no level 3 headers found, fall back to chunk-based splitting
+            return [(text, None)]
         
-        # Extract sections based on header positions
+        # Extract sections based on level 3 header positions
         sections = []
         
-        # Add the document title or introduction if it exists before the first header
-        if header_matches[0].start() > 0:
-            intro = text[:header_matches[0].start()].strip()
-            if intro:
-                sections.append(intro)
-        
-        for i, match in enumerate(header_matches):
+        # Process each level 3 header section
+        for i, match in enumerate(level3_matches):
+            level_name = match.group(1).strip()  # Extract the level name
             start_pos = match.start()
             
             # If this is the last header, the section extends to the end of the text
-            if i == len(header_matches) - 1:
+            if i == len(level3_matches) - 1:
                 section_text = text[start_pos:]
             else:
                 # Otherwise, the section extends to the start of the next header
-                end_pos = header_matches[i + 1].start()
+                end_pos = level3_matches[i + 1].start()
                 section_text = text[start_pos:end_pos]
             
-            sections.append(section_text.strip())
+            # Add the section with its level name
+            sections.append((section_text.strip(), level_name))
+        
+        return sections
         
         return sections
     
@@ -312,12 +333,14 @@ class ChromaDB:
         
         return chunks
     
-    def query_walkthrough_collection(self, query_text, n_results=4):
+    def query_walkthrough_collection(self, query_text, level_name=None, n_results=4):
         """
         Query the walkthrough collection with the given text.
+        Optionally filter by level name for precise retrieval.
         
         Args:
             query_text (str): Text to query with
+            level_name (str, optional): Specific level name to filter by
             n_results (int): Number of results to return
             
         Returns:
@@ -327,11 +350,18 @@ class ChromaDB:
             # Get the collection
             collection = self.chroma_client.get_or_create_collection(name=self.walkthrough_collection_name)
             
+            # Prepare query parameters
+            query_params = {
+                "query_texts": [query_text],
+                "n_results": n_results
+            }
+            
+            # Add level_name filter if provided
+            if level_name:
+                query_params["where"] = {"level_name": level_name}
+            
             # Query the collection
-            results = collection.query(
-                query_texts=[query_text],
-                n_results=n_results
-            )
+            results = collection.query(**query_params)
             
             # Format the results
             formatted_results = []
@@ -375,33 +405,35 @@ class RAG:
         """
         self.chromadb = ChromaDB()
 
-    def query_chromadb(self, query_str):
+    def query_chromadb(self, query_str, level_name=None):
         """
         Query the ChromaDB for relevant walkthrough information.
         
         Args:
             query_str (str): Query string representing the current game state
+            level_name (str, optional): Specific level name to filter by
             
         Returns:
             List[Dict]: List of relevant document chunks
         """
-        return self.chromadb.query_walkthrough_collection(query_str)
+        return self.chromadb.query_walkthrough_collection(query_str, level_name)
 
-    def get_suggestion_from_rag(self, query_str):
+    def get_suggestion_from_rag(self, query_str, level_name=None):
         """
         Get suggestions from the RAG system based on the query.
         Formats the results into a readable format for the user.
         
         Args:
             query_str (str): Query string representing the current game state
+            level_name (str, optional): Specific level name to filter by
             
         Returns:
             str: Formatted suggestion
         """
-        results = self.query_chromadb(query_str)
+        results = self.query_chromadb(query_str, level_name)
         
         if not results:
-            return "This should help to continue the game: No relevant suggestions found."
+            return "I don't have any specific suggestions for this situation. Try exploring or examining objects."
         
         # Format the results into a clean, readable format
         formatted_results = []

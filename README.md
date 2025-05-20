@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/Game-Zork%20I-yellow" alt="Game: Zork I">
   <img src="https://img.shields.io/badge/ChromaDB-RAG-green" alt="ChromaDB RAG">
+  <img src="https://img.shields.io/badge/CrewAI-Multi--Agent-orange" alt="CrewAI Multi-Agent">
 </p>
 
 ## 📖 Description
@@ -25,6 +26,9 @@ This project demonstrates how modern AI can interact with classic interactive fi
 - 💬 Ability to provide suggestions to guide the AI during gameplay
 - 🧩 Structured output using Pydantic for reliable command generation
 - 📚 ChromaDB-powered RAG system for better gameplay assistance
+- 👥 Multi-agent collaboration using CrewAI for specialized gameplay assistance
+- 🔍 Specialized agents for level identification and walkthrough retrieval
+- 🧠 Orchestrator agent to integrate solutions and provide optimal suggestions
 
 ## 🔧 Prerequisites
 
@@ -39,6 +43,7 @@ This project demonstrates how modern AI can interact with classic interactive fi
 - **pydantic** - For data validation and structured output
 - **colorama** - For colored terminal output
 - **chromadb** - For vector database and RAG functionality
+- **crewai** - For multi-agent collaboration and task orchestration
 
 All dependencies can be installed via the provided `requirements.txt` file.
 
@@ -51,8 +56,13 @@ All dependencies can be installed via the provided `requirements.txt` file.
 │   ├── zork_walkthrough.md           # Markdown-based walkthrough
 │   ├── zork_command_sequence.txt     # Linear command sequence
 │   └── zork_location_guide.md        # Location-based reference guide
+├── config/         # Configuration files for CrewAI
+│   ├── agents.yaml                   # Agent definitions and roles
+│   └── tasks.yaml                    # Task definitions for agents
 ├── main.py         # Main application script
 ├── rag.py          # RAG system implementation
+├── crew.py         # CrewAI implementation for multi-agent system
+├── tools.py        # Custom tools for CrewAI agents
 ├── requirements.txt # Project dependencies
 └── README.md       # Project documentation
 ```
@@ -120,6 +130,12 @@ AIZork supports different game modes:
    ```
    This uses ChromaDB to provide context-aware suggestions to the AI based on the current game state.
 
+4. **Multi-Agent Mode**: Enable the CrewAI-powered multi-agent system for collaborative gameplay assistance:
+   ```bash
+   python3 main.py --multi-agent
+   ```
+   This uses specialized agents to analyze the game state, retrieve relevant walkthrough information, and provide optimized suggestions.
+
 ## 📚 ChromaDB RAG System
 
 The RAG (Retrieval-Augmented Generation) system enhances the AI's gameplay by providing context-aware suggestions based on Zork walkthroughs. The system uses:
@@ -153,3 +169,10 @@ The RAG system helps the AI navigate complex areas, solve puzzles, and make bett
    - When enabled, the current game context is also sent to the RAG system
    - ChromaDB retrieves the most relevant walkthrough information
    - This information is provided to the AI to help it make better decisions
+
+4. **Multi-Agent Collaboration**:
+   - When multi-agent mode is enabled, the game context is processed by a crew of specialized agents
+   - The **Orchestrator Agent** coordinates the overall process and integrates information
+   - The **Walkthrough Retriever Agent** uses specialized tools to query the RAG system for relevant walkthrough information
+   - Agents communicate and collaborate to provide optimized gameplay suggestions
+   - The final suggestion is provided to the main AI for command generation

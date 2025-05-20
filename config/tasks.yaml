@@ -1,0 +1,38 @@
+extract_level_task:
+  description: >
+    You are given the current state of the game and you must extract the level name to pass it to the walkthrough retriever.
+    **IMPORTANT** You must not make up a level name nor a game state.
+    Here is the current state of the game:
+
+    '{game_state}'
+    
+  expected_output: >
+    The level name and the game state.
+    Example:
+    "Level name: West of House"
+    "Game state: You are in front of a house."
+  agent: orchestrator
+  async_execution: false
+
+retrieve_walkthrough_task:
+  description: >
+    You are given the level name and the game state from the orchestrator and you must retrieve walkthrough information of the game, using the tool provided.
+    **IMPORTANT** Use query argument for the game state and level_name argument for the level name of the tool to retrieve the walkthrough information.
+    After retrieving sufficient information, you MUST provide a final answer summarizing the walkthrough information you found.
+    DO NOT continue using the tool indefinitely. Use it 1-2 times at most, then provide your final answer.
+  expected_output: >
+    A concise summary of the walkthrough information retrieved for the given level.
+    Example: "For the West of House level, you should open the mailbox, read the leaflet, and then go north to explore further."
+  agent: walkthrough_retriever
+  async_execution: true
+
+integrate_solutions_task:
+  description: >
+    You are given the walkthrough retrieved from the walkthrough retriever agent, and you must integrate the walkthrough information to provide a suggestion to the player.
+  expected_output: >
+    A suggestion to the player to continue the game.
+    Example:
+    "Suggestion: You should try to reach the south of the house"
+    "Suggestion: You should try to open the mailbox"
+  agent: orchestrator
+  async_execution: False

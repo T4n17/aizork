@@ -1,3 +1,5 @@
+from crew import WalkthroughRAGCrew
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -205,6 +207,37 @@ class GameModes:
             print(f"Error: {e}")
             self.aizork.close()
 
+    def autoplay_multi_agent(self):
+        """
+        Run the game in autoplay mode with multi-agent assistance.
+        Uses a walkthrough guide to help the AI make better decisions by retrieving
+        relevant information from the ChromaDB database based on the current game context.
+        """
+        self.aizork.init_process()
+        try:
+            while True:
+                time.sleep(2)  # Wait for game output
+                context = self.aizork.read_text()
+                print(f"{context}")
+                inputs = {
+                    "game_state": f"{context}"
+                }
+                crew = WalkthroughRAGCrew().crew()
+                suggestion = crew.kickoff(inputs=inputs)
+                print(f"{Fore.GREEN}{suggestion}{Style.RESET_ALL}")  # Display suggestion in green
+                # Add the suggestion to the AI's context
+                self.aizork.model.process_user_input(f"Suggestion: {suggestion}")
+                # Generate and execute command
+                command = self.aizork.process_command(context)
+                print(f"{Fore.RED}{command}{Style.RESET_ALL}")  # Display command in red
+                self.aizork.send_command(command)
+                self.aizork.send_command("\n")
+        except KeyboardInterrupt:
+            self.aizork.close()
+        except Exception as e:
+            print(f"Error: {e}")
+            self.aizork.close()
+
     def autoplay_with_rag(self):
         """
         Run the game in autoplay mode with RAG (Retrieval-Augmented Generation) assistance.
@@ -269,7 +302,11 @@ if __name__ == "__main__":
                         help="Choose the game mode (autoplay or suggestion)")
     parser.add_argument("--rag-helper", action="store_true", 
                         help="Enable RAG assistance for better gameplay")
+    parser.add_argument("--multi-agent", action="store_true", 
+                        help="Enable multi-agent assistance for better gameplay")
     args = parser.parse_args()
+    
+    
     
     # Initialize game modes
     game_modes = GameModes()
@@ -281,6 +318,9 @@ if __name__ == "__main__":
     elif args.mode == "suggestion":
         print("Running in suggestion mode...")
         game_modes.suggestion_mode()
+    elif args.multi_agent:
+        print("Running in autoplay mode with multi-agent assistance...")
+        game_modes.autoplay_multi_agent()
     else:
         print("Running in autoplay mode...")
         game_modes.autoplay()
