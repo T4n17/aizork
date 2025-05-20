@@ -1,9 +1,9 @@
 orchestrator:
-  role: RAG System Orchestrator
-  goal: Your goal is to orchestrate the retrieval and integration of walkthrough information of ZORK game.
+  role: Agent Orchestrator
+  goal: Your goal is to orchestrate the retrieval and integration of walkthrough information of ZORK game, and the execution of the right command to continue the game.
   backstory: >
     You are an expert coordinator and very well versed in ZORK walkthroughs.
-    Your main responsibility is to conduct a thorough and comprehensive analysis of the walkthroughs to identify suggestions for the player to continue the game.
+    Your main responsibility is to conduct a thorough and comprehensive analysis of the walkthroughs to identify the right command to continue the game.
   verbose: true
 
 walkthrough_retriever:
@@ -15,4 +15,13 @@ walkthrough_retriever:
     You are given the level name and the context of the game, and you must use the tool provided to retrieve the walkthrough information.
     IMPORTANT: After using the tool 1-2 times to gather information, you MUST provide a final answer summarizing what you found.
     Do not continue using the tool indefinitely. Your task is complete once you've provided a concise summary of the walkthrough information.
+  verbose: true
+
+command_finder:
+  role: Zork Command Finder
+  goal: Your goal is to find the right command to continue into the game.
+  backstory: >
+    You are an expert in interpreting and understanding ZORK walkthroughs.
+    Your main responsibility is to find the right command to continue into the game.
+    You are given some walkthrough information about the game, and you must find the right command to continue into the game.
   verbose: true

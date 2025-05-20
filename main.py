@@ -217,20 +217,14 @@ class GameModes:
         try:
             while True:
                 time.sleep(2)  # Wait for game output
-                context = self.aizork.read_text()
+                context = self.aizork.read_text() # Read game output
                 print(f"{context}")
                 inputs = {
-                    "game_state": f"{context}"
+                    "game_state": f"{context}" # Game output
                 }
-                crew = WalkthroughRAGCrew().crew()
-                suggestion = crew.kickoff(inputs=inputs)
-                print(f"{Fore.GREEN}{suggestion}{Style.RESET_ALL}")  # Display suggestion in green
-                # Add the suggestion to the AI's context
-                self.aizork.model.process_user_input(f"Suggestion: {suggestion}")
-                # Generate and execute command
-                command = self.aizork.process_command(context)
-                print(f"{Fore.RED}{command}{Style.RESET_ALL}")  # Display command in red
-                self.aizork.send_command(command)
+                crew = WalkthroughRAGCrew().crew() # Initialize crew
+                command = crew.kickoff(inputs=inputs) # Execute crew
+                self.aizork.send_command(str(command)) # Send command to game
                 self.aizork.send_command("\n")
         except KeyboardInterrupt:
             self.aizork.close()

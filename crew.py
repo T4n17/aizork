@@ -26,10 +26,10 @@ class WalkthroughRAGCrew():
         
         # Initialize LLM with correct provider format for LiteLLM
         self.llm = LLM(
-            model="ollama/llama3.2:3B",  # Use the correct provider format
+            model="ollama/llama3.2:3B",
             base_url="http://localhost:11434",
             config={
-                "temperature": 0.7
+                "temperature": 0.1
             }
         )
         
@@ -56,13 +56,26 @@ class WalkthroughRAGCrew():
             verbose=self.agents_config['walkthrough_retriever'].get('verbose', True),
             tools=[self.zork_walkthrough_tool],
             llm=self.llm,
-            max_iter=20,
-            max_retry_limit=3,
+            max_iter=1,
+            max_retry_limit=1,
+            allow_delegation=False
+        )
+
+    @agent
+    def command_finder(self) -> Agent:
+        return Agent(
+            role=self.agents_config['command_finder']['role'],
+            goal=self.agents_config['command_finder']['goal'],
+            backstory=self.agents_config['command_finder']['backstory'],
+            verbose=self.agents_config['command_finder'].get('verbose', True),
+            llm=self.llm,
+            max_iter=1,
+            max_retry_limit=1,
             allow_delegation=False
         )
 
     @task
-    def extract_level_task(self, game_state: str = "WELCOME TO ZORK!") -> Task:
+    def extract_level_task(self, game_state: str = "") -> Task:
         return Task(
             description=self.tasks_config['extract_level_task']['description'],
             expected_output=self.tasks_config['extract_level_task']['expected_output'],
@@ -71,7 +84,7 @@ class WalkthroughRAGCrew():
         )
 
     @task
-    def retrieve_walkthrough_task(self, level_name: str = "West of House") -> Task:
+    def retrieve_walkthrough_task(self, level_name: str = "") -> Task:
         return Task(
             description=self.tasks_config['retrieve_walkthrough_task']['description'],
             expected_output=self.tasks_config['retrieve_walkthrough_task']['expected_output'],
@@ -80,7 +93,7 @@ class WalkthroughRAGCrew():
         )
 
     @task
-    def integrate_solutions_task(self, walkthrough: str = "", level_name: str = "West of House") -> Task:
+    def integrate_solutions_task(self, walkthrough: str = "", level_name: str = "") -> Task:
         return Task(
             description=self.tasks_config['integrate_solutions_task']['description'],
             expected_output=self.tasks_config['integrate_solutions_task']['expected_output'],
@@ -88,23 +101,35 @@ class WalkthroughRAGCrew():
             async_execution=self.tasks_config['integrate_solutions_task'].get('async_execution', False)
         )
 
+    @task
+    def command_finder_task(self, walkthrough: str = "", level_name: str = "") -> Task:
+        return Task(
+            description=self.tasks_config['command_finder_task']['description'],
+            expected_output=self.tasks_config['command_finder_task']['expected_output'],
+            agent=self.command_finder(),
+            async_execution=self.tasks_config['command_finder_task'].get('async_execution', False)
+        )
+
     @crew
     def crew(self) -> Crew:
 
         extract_task = self.extract_level_task()
         
-        # Make retrieval tasks depend on the extract_problematics_task
         walkthrough_task = self.retrieve_walkthrough_task()
         walkthrough_task.context = [extract_task]
         
         integrate_task = self.integrate_solutions_task()
         integrate_task.context = [walkthrough_task, extract_task]
         
+        command_finder_task = self.command_finder_task()
+        command_finder_task.context = [integrate_task]
+        
         # Define the task list with explicit ordering
         task_list = [
             extract_task,
             walkthrough_task,
             integrate_task,
+            command_finder_task,
         ]
         
         return Crew(

@@ -16,10 +16,8 @@ extract_level_task:
 
 retrieve_walkthrough_task:
   description: >
-    You are given the level name and the game state from the orchestrator and you must retrieve walkthrough information of the game, using the tool provided.
+    You are given the level name and the game state from the orchestrator and you must retrieve the Zork walkthrough information of the game, using the tool provided.
     **IMPORTANT** Use query argument for the game state and level_name argument for the level name of the tool to retrieve the walkthrough information.
-    After retrieving sufficient information, you MUST provide a final answer summarizing the walkthrough information you found.
-    DO NOT continue using the tool indefinitely. Use it 1-2 times at most, then provide your final answer.
   expected_output: >
     A concise summary of the walkthrough information retrieved for the given level.
     Example: "For the West of House level, you should open the mailbox, read the leaflet, and then go north to explore further."
@@ -28,11 +26,22 @@ retrieve_walkthrough_task:
 
 integrate_solutions_task:
   description: >
-    You are given the walkthrough retrieved from the walkthrough retriever agent, and you must integrate the walkthrough information to provide a suggestion to the player.
+    You are given the Zork walkthrough retrieved from the walkthrough retriever agent, and you must integrate the walkthrough information to provide a suggestion to the player.
   expected_output: >
-    A suggestion to the player to continue the game.
+    A suggestion to the player to continue into the game.
     Example:
     "Suggestion: You should try to reach the south of the house"
     "Suggestion: You should try to open the mailbox"
   agent: orchestrator
+  async_execution: False
+
+command_finder_task:
+  description: >
+    You are given the Zork walkthrough retrieved from the walkthrough retriever agent, and you must find the right command to continue into the game.
+  expected_output: >
+    The right command to continue into the game.
+    Example:
+    "open mailbox"
+    "go north"
+  agent: command_finder
   async_execution: False
